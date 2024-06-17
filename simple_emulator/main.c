@@ -11,8 +11,6 @@ typedef enum InstructionSet{
 	POP, //decrement stack pointer 
 	ADD, //add previous two values in the stack, decrement SP twice 
 	MUL, //multiplication of previous two values in the stack, decrement SP twice
-	SUB, //subtraction of previous two 
-	DIV, //division of previous two values in the stack, decrement SP twice
 	HLT  //end program 
 } InstructionSet; 
 
@@ -38,13 +36,6 @@ void fetch_eval_execute(int *program) {
 			int result = x+y;
 			stack[++sp] = result;
 			break; 	
-		
-		case SUB:	
-			x = stack[sp--];
-			y = stack[sp--];
-			stack[++sp] = result;
-			stack[++sp] = result;
-			break; 
 		default: 	
 			break; 
 	}
