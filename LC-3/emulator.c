@@ -6,7 +6,7 @@
 #define MEMORY_MAX (1<<16)
 #define PC_START 0x3000
 
-int bool running = 1; 
+bool running = 1; 
 uint16_t memory[MEMORY_MAX];
 
 enum {
@@ -23,7 +23,7 @@ enum {
 	R_COUNT
 };
 
-uint16_t registers[R_COUNT];
+uint16_t reg[R_COUNT];
 
 enum {
 	OP_BR = 0, //brach
@@ -76,7 +76,7 @@ int mem_write() {
 int update_flags(uint16_t r) {
 	if (reg[r] == 0) {
 		reg[R_COND] = FL_ZERO;
-	} else if (reg >> 15) {
+	} else if (reg[r] >> 15) {
 		reg[R_COND] = FL_NEG;
 	} else {
 		reg[R_COND] = FL_POS; 
@@ -87,7 +87,7 @@ int fetch_eval_execute() {
 	uint16_t instr = mem_read(reg[R_PC]++);
 	uint16_t op = instr >> 12;
 	switch (op) {
-		case OP_ADD:
+		case OP_ADD:{
 			uint16_t r0 = (instr >> 9) & 0x7;
 			uint16_t r1 = (instr >> 6) & 0x7;
 			uint16_t imm_flag = (instr >> 5) & 0x1;
@@ -100,7 +100,8 @@ int fetch_eval_execute() {
 			}
 			update_flags(r0);
 			break;
-		case OP_AND:
+		}
+		case OP_AND:{
 			uint16_t dr = (instr >> 9) & 0x7;
 			uint16_t sr1 = (instr >> 6) & 0x7;
 			uint16_t imm_flag = (instr >> 5) & 0x01;	
@@ -112,27 +113,31 @@ int fetch_eval_execute() {
 				reg[dr] = reg[sr1] & reg[sr2]; 
 			}			
 			break;
-		case OP_NOT:
+		}
+		case OP_NOT:{
 			uint16_t dr = (instr >> 9) & 0x7;
 			uint16_t sr = (instr >> 6) & 0x7;
 			reg[dr] = ~reg[sr];
 			update_flags(dr);
 			break;
-		case OP_BR:
-			uint16_t n = (intsr >> 11) & 0x1;
-			uint16_t z = (intsr >> 10) & 0x1;
+		}
+		case OP_BR:{
+			uint16_t n = (instr >> 11) & 0x1;
+			uint16_t z = (instr >> 10) & 0x1;
 			uint16_t p = (instr >> 9)  & 0x1;
 			uint16_t pc_offset = sign_extend(instr & 0x1FF, 9); 
 			if ((n|z|p) & reg[R_COND]) {	
 				reg[R_PC] += pc_offset;	
 			} 
 			break;
-		case OP_JMP:
+		}
+		case OP_JMP:{
 			uint16_t br = (instr >> 6) & 0x7;
 			reg[R_PC] = reg[br]; 
 			break;
-		case OP_JSR:
-			uint16_t tesbit = (instr >> 11) & 0x1;
+		}
+		case OP_JSR:{
+			uint16_t testbit = (instr >> 11) & 0x1;
 			if (testbit) {	
 				uint16_t pc_offset = sign_extend(instr & 0x7FF, 11);
 				reg[R_PC] += pc_offset;		
@@ -140,60 +145,70 @@ int fetch_eval_execute() {
 				uint16_t br = (instr >> 6) & 0x7; 
 				reg[R_PC] = reg[br];	
 			}
-                        break; 
-		case OP_LD:
+                        break;
+		} 
+		case OP_LD: {
 			uint16_t dr = (instr >> 9) & 0x7;
 			uint16_t pc_offset = sign_extend(instr & 0x1FF, 9);
 			reg[dr] = mem_read(reg[R_PC] + pc_offset); 
 			update_flags(dr);
 			break;
-		case OP_LDI:
+		}
+		case OP_LDI: {
 			uint16_t r0 = (instr >> 9) & 0x7;
 			uint16_t pc_offset = sign_extend(instr & 0x1FF, 9);
 			reg[r0] = mem_read(mem_read(reg[R_PC] + pc_offset));
 			update_flags(r0);
 			break;
-		case OP_LDR:
+		}
+		case OP_LDR:{
 			uint16_t dr = (instr >> 9) & 0x7;
 			uint16_t br = (instr >> 6) & 0x7; 
 			uint16_t offset = sign_extend( instr & 0x3F, 6);
 			reg[dr] = mem_read(reg[br]+offset);
 			update_flags(dr);
 			break;
-		case OP_LEA:
+		}
+		case OP_LEA:{
 			uint16_t dr = (instr >> 9) & 0x7;
 			uint16_t pc_offset = sign_extend(instr & 0x1FF, 9);
 			reg[dr] = reg[R_PC] + pc_offset;
 			update_flags(dr);  
 			break;
-		case OP_ST:
+		}
+		case OP_ST:{
 			uint16_t sr = (instr >> 9) & 0x7;
 			uint16_t pc_offset = sign_extend(instr & 0x1FF, 9);
 			mem_write(reg[R_PC] + pc_offset); 
 			break;
-		case OP_STI:
+		}
+		case OP_STI:{
 			uint16_t sr = (instr >> 9) & 0x7;
 			uint16_t pc_offset = sign_extend(instr & 0x1FF, 9);
 			mem_write(mem_read(reg[R_PC] + pc_offset), reg[sr]); 
 			break;
-		case OP_STR:
+		}
+		case OP_STR:{
 			uint16_t sr = (instr >> 9) & 0x7;
 			uint16_t br = (instr >> 9) & 0x7;
 			uint16_t pc_offset = sign_extend(instr & 0x3F, 6); 
 			mem_write(reg[br] + pc_offset, reg[sr]);
 			break;
-		case OP_TRAP:
+		}
+		case OP_TRAP:{
 			reg[R_R7] = reg[R_PC];
 			switch (instr & 0xFF) { 
-				case TRAP_GETC:
+				case TRAP_GETC:{
 					reg[R_R0] = (uint16_t)getchar();
 					update_flags(R_R0);
 					break;
-				case TRAP_OUT:
+				}
+				case TRAP_OUT:{
 					putc((char)reg[R_R0], stdout);
 					fflush(stdout);
 					break;
-				case TRAP_PUTS:
+				}
+				case TRAP_PUTS:{
 					uint16_t *c = memory + reg[R_R0];
 					while (*c) {
 						putc((char)*c , stdout);
@@ -201,7 +216,8 @@ int fetch_eval_execute() {
 					}
 					fflush(stdout); 
 					break;
-				case TRAP_IN:
+				}
+				case TRAP_IN:{
 					printf("Enter a character: ");
 					char c = getchar();
 					putc(c, stdout);
@@ -209,7 +225,8 @@ int fetch_eval_execute() {
 					reg[R_R0] = (uint16_t) c;
 					update_flags(R_R0);
 					break;
-				case TRAP_PUTSP:
+				}
+				case TRAP_PUTSP:{
 					uint16_t *c = memory + reg[R_R0];
 					while (*c) {
 				 		char char1 = (*c) & 0xFF;
@@ -220,15 +237,18 @@ int fetch_eval_execute() {
 					}
 					fflush(stdout); 	
 					break;
-				case TRAP_HALT:
+				}
+				case TRAP_HALT:{
 					puts("HALT");
 					fflush(stdout);
 					running = 0; 
 					break;
+				}
 				default:
 					break;	
 			}	
 			break;
+		}
 		case OP_RES:
 		case OP_RTI:
 		default:
