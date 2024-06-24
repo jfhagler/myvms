@@ -60,6 +60,11 @@ enum {
 	TRAP_HALT = 0x25,
 };
 
+enum { 
+	MR_KBSR = 0xFE00,
+	MR_KBDR = 0xFE02,
+};
+
 uint16_t sign_extend(uint16_t x, int bit_count){	
 	if ((x >> (bit_count - 1)) & 1) {
 		x |= (0xFFFF << bit_count);
@@ -82,6 +87,47 @@ int update_flags(uint16_t r) {
 		reg[R_COND] = FL_POS; 
 	}
 } 
+
+uint16_t swap16(uint16_t x) {
+	return (x << 8) | (x >> 8); 
+}
+
+void read_image_file(FILE* file){
+	uint16_t origin
+	fread(&origin, sizeof(origin), 1, file);
+	origin = swap16(origin); 
+	uint16_t max_read = MEMORY_MAX - origin;
+	uint16_t* p = memory + origin; 
+	size_t read = fread(p, sizeof(uint16_t), max_read, file);
+	while (read-- >0) {
+		*p = swap16(*p);
+		++p; 
+	}
+}
+
+int read_image(const char* image_path) {
+	FILE* file = fopen(image_path, "rb");
+	if (!file) { return 0; }
+	read_image_file(file);
+	fclose(file);
+	return 1;
+}
+
+void mem_write(uint16_t address, uint16_t val) {
+	memory[address] = val;
+}
+
+uint16_t mem_read(uint16_t address) {
+	if (address == MR_KBSR) {
+		if (check_key()) {
+			memory[MR_KBSR] = (1 << 15);
+			memory[MR_KBDR] = getchar();
+		} else {
+			memory[MR_KBSR] = 0; 	
+		}
+	}
+	return memory[address]; 
+}
 
 int fetch_eval_execute() { 
 	uint16_t instr = mem_read(reg[R_PC]++);
